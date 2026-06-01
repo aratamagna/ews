@@ -10,24 +10,24 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+  NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
   TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
   EWS_INTERNAL_ALERT_TOKEN: ${{ secrets.EWS_INTERNAL_ALERT_TOKEN }}
   EWS_INTERNAL_ALERT_URL: ${{ vars.EWS_INTERNAL_ALERT_URL || 'https://ewsalert.netlify.app/api/internal/level5-alert' }}
   EWS_INTERNAL_CLEANUP_URL: ${{ vars.EWS_INTERNAL_CLEANUP_URL || 'https://ewsalert.netlify.app/api/internal/anonymize-pending-signups' }}
-  PUBLIC_BUCKET: ews-public
-  STATE_BUCKET: ews-state
+  STATE_STORE: ews-state
+  PUBLIC_STORE: ews-public
   MAIN_DB_PATH: data/ews-main.sqlite
   MILITARY_DB_PATH: data/ews-military.sqlite
   UNTRACKED_DB_PATH: data/ews-untracked.sqlite
-  EWS_PUBLIC_URL: https://ews.kylemcdonald.net/
-  EWS_RSS_URL: https://ews.kylemcdonald.net/rss.xml
-  VITE_DASHBOARD_URL: https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json
-  VITE_MILITARY_DASHBOARD_URL: https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/military-dashboard.json
-  VITE_UNTRACKED_DASHBOARD_URL: https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/untracked-dashboard.json
+  EWS_PUBLIC_URL: https://ewsalert.netlify.app/
+  EWS_RSS_URL: https://ewsalert.netlify.app/rss.xml
+  VITE_DASHBOARD_URL: ${{ vars.VITE_DASHBOARD_URL }}
+  VITE_MILITARY_DASHBOARD_URL: ${{ vars.VITE_MILITARY_DASHBOARD_URL }}
+  VITE_UNTRACKED_DASHBOARD_URL: ${{ vars.VITE_UNTRACKED_DASHBOARD_URL }}
 
 concurrency:
   group: refresh-live-data
@@ -62,36 +62,33 @@ jobs:
       - name: Restore main deployment state
         run: |
           mkdir -p data
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object get "${STATE_BUCKET}/ews-main.sqlite" --file "${MAIN_DB_PATH}" --remote; then
-              exit 0
-            fi
-            echo "R2 main restore attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              python3 scripts/import_faa_cohort.py --db "${MAIN_DB_PATH}"
-              python3 scripts/import_global_cohort.py --db "${MAIN_DB_PATH}"
-              exit 0
-            fi
-            sleep $((attempt * 15))
-          done
+          if node scripts/netlify-blobs.js get "${STATE_STORE}" ews-main.sqlite --file "${MAIN_DB_PATH}"; then
+            echo "Restored main state from Netlify Blobs."
+          else
+            echo "No existing main state found; seeding new deployment DB."
+            python3 scripts/import_faa_cohort.py --db "${MAIN_DB_PATH}"
+            python3 scripts/import_global_cohort.py --db "${MAIN_DB_PATH}"
+          fi
 
       - name: Restore military deployment state
         run: |
           mkdir -p data
-          if npx wrangler r2 object get "${STATE_BUCKET}/ews-military.sqlite" --file "${MILITARY_DB_PATH}" --remote; then
-            exit 0
+          if node scripts/netlify-blobs.js get "${STATE_STORE}" ews-military.sqlite --file "${MILITARY_DB_PATH}"; then
+            echo "Restored military state from Netlify Blobs."
+          else
+            echo "No existing military state; seeding new deployment DB."
+            python3 scripts/import_global_cohort.py --db "${MILITARY_DB_PATH}" --tracked-category military --tracked-source global_military_aircraft
           fi
-          echo "R2 military state is not available yet; seeding a new deployment DB."
-          python3 scripts/import_global_cohort.py --db "${MILITARY_DB_PATH}" --tracked-category military --tracked-source global_military_aircraft
 
       - name: Restore untracked deployment state
         run: |
           mkdir -p data
-          if npx wrangler r2 object get "${STATE_BUCKET}/ews-untracked.sqlite" --file "${UNTRACKED_DB_PATH}" --remote; then
-            exit 0
+          if node scripts/netlify-blobs.js get "${STATE_STORE}" ews-untracked.sqlite --file "${UNTRACKED_DB_PATH}"; then
+            echo "Restored untracked state from Netlify Blobs."
+          else
+            echo "No existing untracked state; seeding new deployment DB."
+            python3 scripts/track_non_icao_hex.py --db "${UNTRACKED_DB_PATH}" --latest-live --cache-dir data/cache/adsbx_live --replace-live-snapshot
           fi
-          echo "R2 untracked state is not available yet; seeding a new deployment DB."
-          python3 scripts/track_non_icao_hex.py --db "${UNTRACKED_DB_PATH}" --latest-live --cache-dir data/cache/adsbx_live --replace-live-snapshot
 
       - name: Refresh latest main heatmap
         run: python3 scripts/update_latest_heatmap.py --db "${MAIN_DB_PATH}"
@@ -151,127 +148,23 @@ jobs:
             -H "Authorization: Bearer ${EWS_INTERNAL_ALERT_TOKEN}"
 
       - name: Upload main deployment state
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${STATE_BUCKET}/ews-main.sqlite" --file "${MAIN_DB_PATH}" --remote; then
-              exit 0
-            fi
-            echo "R2 main state upload attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${STATE_STORE}" ews-main.sqlite --file "${MAIN_DB_PATH}"
 
       - name: Upload military deployment state
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${STATE_BUCKET}/ews-military.sqlite" --file "${MILITARY_DB_PATH}" --remote; then
-              exit 0
-            fi
-            echo "R2 military state upload attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${STATE_STORE}" ews-military.sqlite --file "${MILITARY_DB_PATH}"
 
       - name: Upload untracked deployment state
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${STATE_BUCKET}/ews-untracked.sqlite" --file "${UNTRACKED_DB_PATH}" --remote; then
-              exit 0
-            fi
-            echo "R2 untracked state upload attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${STATE_STORE}" ews-untracked.sqlite --file "${UNTRACKED_DB_PATH}"
 
       - name: Publish RSS feed
         if: steps.rss.outputs.updated == 'true'
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${PUBLIC_BUCKET}/rss.xml" \
-              --file tmp/rss.xml \
-              --remote \
-              --content-type application/rss+xml \
-              --cache-control "public, max-age=300"; then
-              exit 0
-            fi
-            echo "R2 RSS publish attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
-
-      - name: Deploy updated RSS endpoint
-        if: steps.rss.outputs.updated == 'true'
-        run: |
-          npm run build
-          cp tmp/rss.xml client/dist/rss.xml
-          npx wrangler pages deploy client/dist --project-name apocalypse-ews --branch main --commit-hash "$GITHUB_SHA"
-
-      - name: Install Playwright browser
-        if: steps.rss.outputs.updated == 'true'
-        run: npx playwright install chromium
-
-      - name: Smoke test live site
-        if: steps.rss.outputs.updated == 'true'
-        run: npm run smoke:live
+        run: node scripts/netlify-blobs.js put "${PUBLIC_STORE}" rss.xml --file tmp/rss.xml --content-type application/rss+xml
 
       - name: Publish live snapshot
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${PUBLIC_BUCKET}/dashboard.json" \
-              --file tmp/dashboard.json.gz \
-              --remote \
-              --content-type application/json \
-              --content-encoding gzip \
-              --cache-control "public, max-age=300"; then
-              exit 0
-            fi
-            echo "R2 snapshot publish attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${PUBLIC_STORE}" dashboard.json --file tmp/dashboard.json.gz --content-type application/json --metadata '{"contentEncoding":"gzip"}'
 
       - name: Publish military live snapshot
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${PUBLIC_BUCKET}/military-dashboard.json" \
-              --file tmp/military-dashboard.json.gz \
-              --remote \
-              --content-type application/json \
-              --content-encoding gzip \
-              --cache-control "public, max-age=300"; then
-              exit 0
-            fi
-            echo "R2 military snapshot publish attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${PUBLIC_STORE}" military-dashboard.json --file tmp/military-dashboard.json.gz --content-type application/json --metadata '{"contentEncoding":"gzip"}'
 
       - name: Publish untracked live snapshot
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if npx wrangler r2 object put "${PUBLIC_BUCKET}/untracked-dashboard.json" \
-              --file tmp/untracked-dashboard.json.gz \
-              --remote \
-              --content-type application/json \
-              --content-encoding gzip \
-              --cache-control "public, max-age=300"; then
-              exit 0
-            fi
-            echo "R2 untracked snapshot publish attempt ${attempt} failed."
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-            sleep $((attempt * 15))
-          done
+        run: node scripts/netlify-blobs.js put "${PUBLIC_STORE}" untracked-dashboard.json --file tmp/untracked-dashboard.json.gz --content-type application/json --metadata '{"contentEncoding":"gzip"}'
