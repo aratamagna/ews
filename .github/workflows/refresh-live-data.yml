@@ -16,8 +16,8 @@ env:
   TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}
   TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
   EWS_INTERNAL_ALERT_TOKEN: ${{ secrets.EWS_INTERNAL_ALERT_TOKEN }}
-  EWS_INTERNAL_ALERT_URL: https://ews.kylemcdonald.net/api/internal/level5-alert
-  EWS_INTERNAL_CLEANUP_URL: https://ews.kylemcdonald.net/api/internal/anonymize-pending-signups
+  EWS_INTERNAL_ALERT_URL: ${{ vars.EWS_INTERNAL_ALERT_URL || 'https://ewsalert.netlify.app/api/internal/level5-alert' }}
+  EWS_INTERNAL_CLEANUP_URL: ${{ vars.EWS_INTERNAL_CLEANUP_URL || 'https://ewsalert.netlify.app/api/internal/anonymize-pending-signups' }}
   PUBLIC_BUCKET: ews-public
   STATE_BUCKET: ews-state
   MAIN_DB_PATH: data/ews-main.sqlite
