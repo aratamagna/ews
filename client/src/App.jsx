@@ -5,10 +5,9 @@ import './App.css'
 
 const EventSignalExplainer = lazy(() => import('./EventSignalExplainer.jsx'))
 
-const PUBLIC_DASHBOARD_BASE_URL = 'https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev'
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || `${PUBLIC_DASHBOARD_BASE_URL}/dashboard.json`
-const MILITARY_DASHBOARD_URL = import.meta.env.VITE_MILITARY_DASHBOARD_URL || `${PUBLIC_DASHBOARD_BASE_URL}/military-dashboard.json`
-const UNTRACKED_DASHBOARD_URL = import.meta.env.VITE_UNTRACKED_DASHBOARD_URL || `${PUBLIC_DASHBOARD_BASE_URL}/untracked-dashboard.json`
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || '/data/dashboard.json'
+const MILITARY_DASHBOARD_URL = import.meta.env.VITE_MILITARY_DASHBOARD_URL || '/data/military-dashboard.json'
+const UNTRACKED_DASHBOARD_URL = import.meta.env.VITE_UNTRACKED_DASHBOARD_URL || '/data/untracked-dashboard.json'
 const DISCORD_BOT_URL = 'https://jamiew.github.io/apocalypse-ews-discord/'
 const COHORT_CONFIGS = [
   { id: 'business', label: 'Business jets', dashboardUrl: DASHBOARD_URL },

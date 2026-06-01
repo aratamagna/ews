@@ -70,6 +70,12 @@
   to = "/.netlify/functions/api"
   status = 200
 
+# Serve dashboard data from Netlify Blobs via function
+[[redirects]]
+  from = "/data/*"
+  to = "/.netlify/functions/dashboard-proxy"
+  status = 200
+
 # SPA fallback — serve index.html for all unmatched routes
 [[redirects]]
   from = "/*"
@@ -115,6 +121,9 @@
     # Increase timeout for batch operations (renewal reminders, level5 alerts)
     # Requires Netlify Pro plan for >10s timeout
     external_node_modules = ["@libsql/client"]
+
+  [functions.dashboard-proxy]
+    external_node_modules = ["@netlify/blobs"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Deploy contexts
