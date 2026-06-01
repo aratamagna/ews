@@ -25,9 +25,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Environment variables required at BUILD TIME (set in Netlify UI > Site settings)
 #
-# VITE_DASHBOARD_URL          = https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json
-# VITE_MILITARY_DASHBOARD_URL = https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/military-dashboard.json
-# VITE_UNTRACKED_DASHBOARD_URL= https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/untracked-dashboard.json
+# VITE_DASHBOARD_URL
+# VITE_MILITARY_DASHBOARD_URL
+# VITE_UNTRACKED_DASHBOARD_URL
 #
 # Runtime env vars for Netlify Functions (set in Netlify UI):
 # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRODUCT_ID, STRIPE_PRICE_ID
@@ -35,7 +35,7 @@
 # TELNYX_API_KEY, TELNYX_NUMBER, TELNYX_PUBLIC_KEY
 # INTERNAL_ALERT_TOKEN, NOTIFICATION_HASH_SECRET, NOTIFICATION_ENCRYPTION_KEY
 # APP_BASE_URL, EWS_PUBLIC_URL, EWS_NOTIFICATION_URL
-# DATABASE_URL (if migrating from D1 to a hosted DB like PlanetScale/Neon/Turso)
+# TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────

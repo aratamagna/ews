@@ -21,9 +21,9 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  VITE_DASHBOARD_URL: ${{ vars.VITE_DASHBOARD_URL || 'https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json' }}
-  VITE_MILITARY_DASHBOARD_URL: ${{ vars.VITE_MILITARY_DASHBOARD_URL || 'https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/military-dashboard.json' }}
-  VITE_UNTRACKED_DASHBOARD_URL: ${{ vars.VITE_UNTRACKED_DASHBOARD_URL || 'https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/untracked-dashboard.json' }}
+  VITE_DASHBOARD_URL: ${{ vars.VITE_DASHBOARD_URL }}
+  VITE_MILITARY_DASHBOARD_URL: ${{ vars.VITE_MILITARY_DASHBOARD_URL }}
+  VITE_UNTRACKED_DASHBOARD_URL: ${{ vars.VITE_UNTRACKED_DASHBOARD_URL }}
 
 concurrency:
   group: deploy-netlify
