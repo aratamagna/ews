@@ -14,8 +14,7 @@
 
   # Node version for the build environment
   [build.environment]
-    NODE_VERSION = "22"
-    NPM_FLAGS = "--prefix=/"
+    NODE_VERSION = "20"
 
 [dev]
   command = "npm run dev:client"
