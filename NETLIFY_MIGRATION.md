@@ -50,8 +50,8 @@ for f in migrations/*.sql; do turso db shell ews-notifications < "$f"; done
 The adapter is already wired into the function router (`netlify/functions/api.js`). Just set these env vars in Netlify:
 
 ```
-TURSO_DATABASE_URL=libsql://your-db-name.turso.io
-TURSO_AUTH_TOKEN=your-auth-token
+TURSO_DATABASE_URL=libsql://ewsnotifications-aratamagna.aws-us-east-1.turso.io
+TURSO_AUTH_TOKEN=<your-auth-token-from-turso-dashboard>
 ```
 
 ### 2. Serverless Functions (Already Implemented)
