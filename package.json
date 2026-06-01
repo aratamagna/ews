@@ -22,6 +22,9 @@
     "smoke:live": "node scripts/smoke_live_site.js",
     "smoke:live:prompt": "node scripts/smoke_live_site.js --prompt",
     "deploy:pages": "node scripts/deploy_pages.js",
+    "deploy:netlify": "netlify deploy --prod --dir=client/dist --functions=netlify/functions",
+    "deploy:netlify:preview": "netlify deploy --dir=client/dist --functions=netlify/functions",
+    "netlify:dev": "netlify dev",
     "start": "node server/index.js",
     "import:faa": "python3 scripts/import_faa_cohort.py",
     "import:global": "python3 scripts/import_global_cohort.py",
@@ -44,6 +47,7 @@
     "lint": "npm run lint --workspace client"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",

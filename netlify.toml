@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Netlify deployment configuration for EWS (Apocalypse Early Warning System)
+#
+# This project was originally deployed on Cloudflare Pages + D1.
+# The CLIENT (React/Vite SPA) deploys as a static site on Netlify.
+# The SERVERLESS FUNCTIONS require migration from Cloudflare Pages Functions
+# to Netlify Functions (see netlify/functions/ and NETLIFY_MIGRATION.md).
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build]
+  # Build the Vite client from the monorepo root
+  command = "npm ci && npm run build"
+  publish = "client/dist"
+
+  # Node version for the build environment
+  [build.environment]
+    NODE_VERSION = "22"
+    NPM_FLAGS = "--prefix=/"
+
+[dev]
+  command = "npm run dev:client"
+  targetPort = 5173
+  port = 8888
+  autoLaunch = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment variables required at BUILD TIME (set in Netlify UI > Site settings)
+#
+# VITE_DASHBOARD_URL          = https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/dashboard.json
+# VITE_MILITARY_DASHBOARD_URL = https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/military-dashboard.json
+# VITE_UNTRACKED_DASHBOARD_URL= https://pub-49bb6a6f314c47be9b481c25e5f6ca9e.r2.dev/untracked-dashboard.json
+#
+# Runtime env vars for Netlify Functions (set in Netlify UI):
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRODUCT_ID, STRIPE_PRICE_ID
+# SENDGRID_API_KEY, SENDGRID_FROM_EMAIL, SENDGRID_FROM_NAME
+# TELNYX_API_KEY, TELNYX_NUMBER, TELNYX_PUBLIC_KEY
+# INTERNAL_ALERT_TOKEN, NOTIFICATION_HASH_SECRET, NOTIFICATION_ENCRYPTION_KEY
+# APP_BASE_URL, EWS_PUBLIC_URL, EWS_NOTIFICATION_URL
+# DATABASE_URL (if migrating from D1 to a hosted DB like PlanetScale/Neon/Turso)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Redirects & Rewrites
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Legacy route redirects
+[[redirects]]
+  from = "/military"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/military/*"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/untracked"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/untracked/*"
+  to = "/"
+  status = 301
+
+# Proxy API requests to the unified Netlify Function router
+# The function receives the original path via event.path
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+
+# SPA fallback — serve index.html for all unmatched routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Headers — security and caching
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/rss.xml"
+  [headers.values]
+    Content-Type = "application/rss+xml; charset=utf-8"
+    Cache-Control = "public, max-age=300"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Netlify Functions configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # Include the original CF functions as source (they are imported by the router)
+  included_files = [
+    "netlify/functions/**",
+    "functions/**",
+  ]
+
+  [functions.api]
+    # Increase timeout for batch operations (renewal reminders, level5 alerts)
+    # Requires Netlify Pro plan for >10s timeout
+    external_node_modules = ["@libsql/client"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Deploy contexts
+# ─────────────────────────────────────────────────────────────────────────────
+
+[context.production]
+  command = "npm ci && npm run build"
+
+[context.deploy-preview]
+  command = "npm ci && npm run build --workspace client -- --mode development"
