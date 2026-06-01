@@ -24,6 +24,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
 
@@ -86,9 +87,20 @@ async function netlifyBlobsRequest(method, storeName, key, options = {}) {
 }
 
 async function getBlob(store, key, filePath) {
-  console.log(`Downloading ${store}/${key} -> ${filePath}`);
+  // Try compressed key first, fall back to uncompressed for backwards compat
+  const compressedKey = key.endsWith(".gz") ? key : `${key}.gz`;
+  const useCompressed = !key.endsWith(".gz");
 
-  const response = await netlifyBlobsRequest("GET", store, key);
+  const keyToFetch = useCompressed ? compressedKey : key;
+  console.log(`Downloading ${store}/${keyToFetch} -> ${filePath}`);
+
+  let response = await netlifyBlobsRequest("GET", store, keyToFetch);
+
+  if (!response.ok && useCompressed && response.status === 404) {
+    // Fall back to uncompressed key
+    console.log(`Compressed blob not found, trying uncompressed ${store}/${key}`);
+    response = await netlifyBlobsRequest("GET", store, key);
+  }
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -102,8 +114,17 @@ async function getBlob(store, key, filePath) {
 
   const buffer = Buffer.from(await response.arrayBuffer());
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, buffer);
-  console.log(`Downloaded ${buffer.length} bytes to ${filePath}`);
+
+  // Decompress if we fetched the .gz key
+  const isGzipped = keyToFetch.endsWith(".gz") && !key.endsWith(".gz");
+  if (isGzipped) {
+    const decompressed = zlib.gunzipSync(buffer);
+    fs.writeFileSync(filePath, decompressed);
+    console.log(`Downloaded and decompressed ${buffer.length} bytes -> ${decompressed.length} bytes to ${filePath}`);
+  } else {
+    fs.writeFileSync(filePath, buffer);
+    console.log(`Downloaded ${buffer.length} bytes to ${filePath}`);
+  }
 }
 
 async function putBlob(store, key, filePath, options = {}) {
@@ -114,10 +135,23 @@ async function putBlob(store, key, filePath, options = {}) {
     process.exit(1);
   }
 
-  const body = fs.readFileSync(filePath);
+  const raw = fs.readFileSync(filePath);
+
+  // Compress SQLite files (and any file not already gzipped) to stay under the 10MB blob limit
+  const shouldCompress = !key.endsWith(".gz") && !options.contentEncoding;
+  let body;
+  let uploadKey = key;
+  if (shouldCompress) {
+    body = zlib.gzipSync(raw, { level: zlib.constants.Z_BEST_COMPRESSION });
+    uploadKey = `${key}.gz`;
+    console.log(`Compressed ${raw.length} bytes -> ${body.length} bytes`);
+  } else {
+    body = raw;
+  }
+
   const contentType = options.contentType || "application/octet-stream";
 
-  const response = await netlifyBlobsRequest("PUT", store, key, {
+  const response = await netlifyBlobsRequest("PUT", store, uploadKey, {
     body,
     contentType,
     metadata: options.metadata,
@@ -129,7 +163,7 @@ async function putBlob(store, key, filePath, options = {}) {
     process.exit(1);
   }
 
-  console.log(`Uploaded ${body.length} bytes to ${store}/${key}`);
+  console.log(`Uploaded ${body.length} bytes to ${store}/${uploadKey}`);
 }
 
 async function deleteBlob(store, key) {
